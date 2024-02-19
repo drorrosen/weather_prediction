@@ -1,0 +1,11 @@
+streamlit
+numpy
+pandas
+requests
+json
+matplotlib
+seaborn
+datetime
+warnings
+sklearn
+math
