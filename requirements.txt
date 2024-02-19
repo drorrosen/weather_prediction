@@ -4,5 +4,5 @@ pandas
 matplotlib
 seaborn
 datetime
-sklearn
+scikit-learn
 math
