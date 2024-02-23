@@ -2,8 +2,6 @@ import pandas as pd
 import numpy as np
 import requests
 import json
-import matplotlib.pyplot as plt
-import seaborn as sns
 from datetime import timedelta
 
 import warnings
@@ -17,11 +15,9 @@ from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.multioutput import MultiOutputRegressor
 from sklearn.base import clone
-import numpy as np
 
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from math import sqrt
-from sklearn.svm import SVR
 from sklearn.neighbors import KNeighborsRegressor
 
 
@@ -65,11 +61,12 @@ class DataFetcherAndPreprocessor:
 
         latest_date = self.df['date'].max()
         filtered_df = self.df[self.df['date'] > latest_date - pd.Timedelta(days=days)]
-        pivot_table = filtered_df.pivot_table(index=['locationId', 'lat', 'lon'],
+        pivot_table = filtered_df.pivot_table(index=['locationId', 'lat', 'lon','Elevation'],
                                               columns='sensorName',
                                               values='sensorData',
                                               aggfunc='mean').reset_index()
         pivot_table = pivot_table.drop(columns=['AQI-IN','aqi'])
+        #pivot_table['Elevation'] = pivot_table['Elevation'].astype(int)
         return pivot_table
 
     def apply_qc_checks(self, df):
@@ -186,8 +183,8 @@ class PollutantPredictor:
 class StackingPollutantPredictor:
     def __init__(self, df_cleaned):
         self.df_cleaned = df_cleaned
-        self.X = df_cleaned[['lat', 'lon']]
-        self.Y = df_cleaned.drop(columns=['lat', 'lon'])
+        self.X = df_cleaned[['lat', 'lon','Elevation']]
+        self.Y = df_cleaned.drop(columns=['lat', 'lon', 'Elevation'])
         self.models = [
             RandomForestRegressor(),
             GradientBoostingRegressor(),
@@ -218,26 +215,6 @@ class StackingPollutantPredictor:
 
         self.stacker.fit(oof_preds, Y_train)
         self.X_test, self.Y_test = X_test, Y_test  # Store for evaluation
-
-    def predict_and_evaluate(self):
-        n_outputs = self.Y_test.shape[1]
-        test_preds = np.zeros((self.X_test.shape[0], n_outputs * len(self.models)))
-
-        for i, model in enumerate(self.models):
-            model_clone = clone(model)
-            if not hasattr(model, "predict_proba") and model._estimator_type == "regressor":
-                model_clone = MultiOutputRegressor(model_clone)
-            model_clone.fit(self.X, self.Y)
-
-            preds = model_clone.predict(self.X_test)
-            test_preds[:, i*n_outputs:(i+1)*n_outputs] = preds
-
-        final_predictions = self.stacker.predict(test_preds)
-        final_rmse = sqrt(mean_squared_error(self.Y_test, final_predictions))
-
-        print(f"Final Stacking Model RMSE on Test Set: {final_rmse}")
-        return pd.DataFrame(final_predictions, columns=self.Y_test.columns)
-
 
     def predict_for_new_coordinates(self, new_coordinates):
         """
@@ -276,3 +253,30 @@ class StackingPollutantPredictor:
         predicted_df['lat'], predicted_df['lon'] = new_coordinates[:, 0], new_coordinates[:, 1]
 
         return predicted_df
+
+    def predict_and_evaluate(self):
+        n_outputs = self.Y_test.shape[1]
+        test_preds = np.zeros((self.X_test.shape[0], n_outputs * len(self.models)))
+
+        for i, model in enumerate(self.models):
+            model_clone = clone(model)
+            if not hasattr(model, "predict_proba") and model._estimator_type == "regressor":
+                model_clone = MultiOutputRegressor(model_clone)
+            model_clone.fit(self.X, self.Y)
+
+            preds = model_clone.predict(self.X_test)
+            test_preds[:, i*n_outputs:(i+1)*n_outputs] = preds
+
+        final_predictions = self.stacker.predict(test_preds)
+        final_mae = mean_absolute_error(self.Y_test, final_predictions)
+
+
+        # Example modification to include after final_mae calculation
+        maes_per_pollutant = {}
+        for i, pollutant in enumerate(self.Y_test.columns):
+            pollutant_mae = mean_absolute_error(self.Y_test.iloc[:, i], final_predictions[:, i])
+            maes_per_pollutant[pollutant] = pollutant_mae
+            #print(f"MAE for {pollutant}: {pollutant_mae}")
+
+        # pd.DataFrame(final_predictions, columns=self.Y_test.columns)
+        return final_mae, maes_per_pollutant
