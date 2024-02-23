@@ -13,6 +13,7 @@ def train_models():
     fetcher.preprocess_data()
     fetcher.extract_and_process_dates()
     pivot_table = fetcher.filter_and_pivot_data()
+    st.write(pivot_table)
     pivot_table_qc = fetcher.apply_qc_checks(pivot_table.copy())
     pollutants = pivot_table_qc.drop(columns=['locationId', 'lat', 'lon']).columns
     pivot_table_imputed = fetcher.impute_missing_values(pivot_table_qc, pollutants)
@@ -41,15 +42,18 @@ else:
 
 lat = st.number_input('Enter Latitude', value=0.0, format='%f')
 lon = st.number_input('Enter Longitude', value=0.0, format='%f')
+elevation = st.number_input('Enter Elevation', value=0.0, format='%f')
 
-if st.button('Predict Pollution Using Radius Method'):
-    new_coordinates = np.array([[lat, lon]])
-    # Retrieve models from session state for prediction
-    prediction = st.session_state['pollutant_predictor'].predict_pollutants(new_coordinates)
-    st.write('Prediction from Pollutant Predictor:', prediction)
+# if st.button('Predict Pollution Using Radius Method'):
+#     new_coordinates = np.array([[lat, lon, elevation]])
+#     # Retrieve models from session state for prediction
+#     prediction = st.session_state['pollutant_predictor'].predict_pollutants(new_coordinates)
+#     st.write('Prediction from Pollutant Predictor:', prediction)
 if st.button('Predict Pollution Using Stacking Method'):
-    new_coordinates = np.array([[lat, lon]])
+    new_coordinates = np.array([[lat, lon, elevation]])
     # Implement prediction with stacking_predictor similarly
+    #evalutation = st.session_state['stacking_predictor'].predict_and_evaluate()
+    #st.write('Mean Absolute Error:', evalutation)
     prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_coordinates)
     st.write('Prediction from Stacking Predictor:', np.round(prediction))
 #%%
