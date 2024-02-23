@@ -76,7 +76,7 @@ class DataFetcherAndPreprocessor:
         return df
 
     def impute_missing_values(self, df, pollutants, radius=0.5):
-        X = df[['lat', 'lon']]
+        X = df[['lat', 'lon', 'Elevation']]
         for pollutant in pollutants:
             y = df[pollutant]
             available_data = y.notna()
