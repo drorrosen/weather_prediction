@@ -5,3 +5,4 @@ matplotlib
 seaborn
 datetime
 scikit-learn
+openpyxl
