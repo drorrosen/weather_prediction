@@ -57,8 +57,8 @@ if st.button('Predict Pollution Using Stacking Method'):
     # Implement prediction with stacking_predictor similarly
     evalutation = st.session_state['stacking_predictor'].predict_and_evaluate()
     st.write('Mean Absolute Error:', evalutation)
-    #prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_coordinates)
-    #st.write('Prediction from Stacking Predictor:', np.round(prediction))
+    prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_coordinates)
+    st.write('Prediction from Stacking Predictor:', np.round(prediction))
 #%%
 #### adding sidebar
 
@@ -69,71 +69,97 @@ if st.button('Predict Pollution Using Stacking Method'):
 st.divider()
 
 
+# def apply_prediction(row):
+#     # Assuming model's predict method returns a list/array of predictions for each row
+#     data_for_prediction = np.array([[row['Elevation'], row['lat'], row['lon']]])
+#     if 'stacking_predictor' in st.session_state:
+#         predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(data_for_prediction)
+#         # Assuming predictions is now a list/array of predictions, one for each output
+#         return pd.Series(predictions)
+#     else:
+#         return pd.Series([np.nan, np.nan])  # Adjust the number of np.nan values based on the number of outputs
+
 def apply_prediction(row):
-    # Assuming model's predict method returns a list/array of predictions for each row
     data_for_prediction = np.array([[row['Elevation'], row['lat'], row['lon']]])
     if 'stacking_predictor' in st.session_state:
         predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(data_for_prediction)
-        # Assuming predictions is now a list/array of predictions, one for each output
+
+        # If predictions is a DataFrame, extract its values as numpy array
+        if isinstance(predictions, pd.DataFrame):
+            predictions = predictions.values
+
+        # Ensure predictions is in a format that can be converted to a Series directly
+        # If predictions is a 2D numpy array with one row, flatten it to 1D
+        if isinstance(predictions, np.ndarray) and predictions.ndim > 1:
+            predictions = predictions.flatten()
+
+        # Now, predictions should be in a format that can be directly converted to a Series
         return pd.Series(predictions)
     else:
-        return pd.Series([np.nan, np.nan])  # Adjust the number of np.nan values based on the number of outputs
+        # Adjust the number of np.nan values based on the number of outputs expected
+        return pd.Series([np.nan])  # Update 'number_of_expected_outputs' accordingly
 
 
 
-st.divider()
-st.subheader('Uploading a file for predictions')
-st.write('Please make sure the next coluumn are in the file - Elevation, lat, lon')
+# st.divider()
+# st.subheader('Uploading a file for predictions')
+# st.write('Please make sure the next coluumn are in the file - Elevation, lat, lon')
+#
+# uploaded_file = st.file_uploader("Upload a file", type=['csv', 'xlsx'])
+#
+#
+# # Allow the user to upload a file in the sidebar with specific file types
+#
+# if uploaded_file is not None:
+#     file_extension = uploaded_file.name.split('.')[-1]
+#     # Read the uploaded file
+#     if file_extension == 'csv':
+#         df = pd.read_csv(uploaded_file)
+#     elif file_extension == 'xlsx':
+#         df = pd.read_excel(uploaded_file)
+#     else:
+#         st.error('Invalid file type. Only CSV and Excel files are supported.')
+#         st.stop()
+#
+#     # Apply the prediction function to each row
+#     for index, row in df.iterrows():
+#         prediction = apply_prediction(row)
+#         st.write(prediction)
 
+    # # Prepare data for prediction
+    # prediction_input = df[expected_columns].to_numpy()
+    #
+    # if 'stacking_predictor' in st.session_state:
+    #     # Obtain predictions for the entire dataset at once
+    #     predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(prediction_input)
+    #
+    #     # If predictions is a DataFrame, you can directly concatenate; if it's a numpy array, convert it first
+    #     if isinstance(predictions, np.ndarray):
+    #         # Convert to DataFrame and name columns appropriately
+    #         predictions_df = pd.DataFrame(predictions, columns=['Prediction1', 'Prediction2'])  # Adjust column names as needed
+    #     else:
+    #         # Assuming predictions is already a DataFrame with the correct column names
+    #         predictions_df = predictions
+    #         st.write('Predictions:', predictions_df)
+    #
+    #     # Ensure the index aligns with the original DataFrame if necessary
+    #     predictions_df.reset_index(drop=True, inplace=True)
+    #     predictions_df = predictions_df.drop(columns=['lat', 'lon'], errors='ignore')
+    #
+    #     df.reset_index(drop=True, inplace=True)
+    #
+    #     # Concatenate the predictions DataFrame with the original DataFrame
+    #     full_df = pd.concat([df, predictions_df], axis=1)
+    #
+    #     st.write('Full file with predictions:', full_df)
+    #
+    #     # Convert to CSV for download
+    #     csv = full_df.to_csv(index=False).encode('utf-8')
+    #     st.download_button(
+    #         label="Download predictions as CSV",
+    #         data=csv,
+    #         file_name='predictions.csv',
+    #         mime='text/csv',
+    #     )
 
 # Upload file
-uploaded_file = st.file_uploader("Upload a file", type=['csv', 'xlsx'])
-
-
-# Allow the user to upload a file in the sidebar with specific file types
-
-if uploaded_file is not None:
-    file_extension = uploaded_file.name.split('.')[-1]
-
-    # Read the file based on its extension
-    if file_extension == 'csv':
-        df = pd.read_csv(uploaded_file)
-    elif file_extension == 'xlsx':
-        df = pd.read_excel(uploaded_file)
-
-    # Ensure the DataFrame has the expected columns before proceeding
-    expected_columns = ['Elevation', 'lat', 'lon']
-    if all(column in df.columns for column in expected_columns):
-        # Extract the necessary columns and convert to NumPy array for prediction
-        new_data = df[expected_columns].to_numpy()
-
-        # Check if the stacking_predictor model is available in session state
-        if 'stacking_predictor' in st.session_state:
-            # Use the model to predict on the new data
-            prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_data)
-
-            full_file = pd.concat([df[['Elevation', 'lat', 'lon']], prediction.drop(columns=['lat', 'lon'])], axis=1)
-            st.write('full file', full_file)
-
-
-
-            # Convert DataFrame to CSV for download
-            csv = full_file.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Download predictions as CSV",
-                data=csv,
-                file_name='predictions.csv',
-                mime='text/csv',
-    )
-
-
-
-
-
-        else:
-            st.error('Model is not trained yet. Please train the model first.')
-    else:
-        st.error('Uploaded file does not contain the required columns.')
-else:
-    st.write("Please upload a file.")
-
