@@ -29,6 +29,9 @@ def train_models():
 
 st.title("Pollution Prediction App")
 
+
+
+
 # Check if models are already trained and stored in session state
 if 'pollutant_predictor' not in st.session_state or 'stacking_predictor' not in st.session_state:
     if st.button('Train the Models'):
@@ -52,8 +55,85 @@ elevation = st.number_input('Enter Elevation', value=0.0, format='%f')
 if st.button('Predict Pollution Using Stacking Method'):
     new_coordinates = np.array([[lat, lon, elevation]])
     # Implement prediction with stacking_predictor similarly
-    #evalutation = st.session_state['stacking_predictor'].predict_and_evaluate()
-    #st.write('Mean Absolute Error:', evalutation)
-    prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_coordinates)
-    st.write('Prediction from Stacking Predictor:', np.round(prediction))
+    evalutation = st.session_state['stacking_predictor'].predict_and_evaluate()
+    st.write('Mean Absolute Error:', evalutation)
+    #prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_coordinates)
+    #st.write('Prediction from Stacking Predictor:', np.round(prediction))
 #%%
+#### adding sidebar
+
+
+
+
+
+st.divider()
+
+
+def apply_prediction(row):
+    # Assuming model's predict method returns a list/array of predictions for each row
+    data_for_prediction = np.array([[row['Elevation'], row['lat'], row['lon']]])
+    if 'stacking_predictor' in st.session_state:
+        predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(data_for_prediction)
+        # Assuming predictions is now a list/array of predictions, one for each output
+        return pd.Series(predictions)
+    else:
+        return pd.Series([np.nan, np.nan])  # Adjust the number of np.nan values based on the number of outputs
+
+
+
+st.divider()
+st.subheader('Uploading a file for predictions')
+st.write('Please make sure the next coluumn are in the file - Elevation, lat, lon')
+
+
+# Upload file
+uploaded_file = st.file_uploader("Upload a file", type=['csv', 'xlsx'])
+
+
+# Allow the user to upload a file in the sidebar with specific file types
+
+if uploaded_file is not None:
+    file_extension = uploaded_file.name.split('.')[-1]
+
+    # Read the file based on its extension
+    if file_extension == 'csv':
+        df = pd.read_csv(uploaded_file)
+    elif file_extension == 'xlsx':
+        df = pd.read_excel(uploaded_file)
+
+    # Ensure the DataFrame has the expected columns before proceeding
+    expected_columns = ['Elevation', 'lat', 'lon']
+    if all(column in df.columns for column in expected_columns):
+        # Extract the necessary columns and convert to NumPy array for prediction
+        new_data = df[expected_columns].to_numpy()
+
+        # Check if the stacking_predictor model is available in session state
+        if 'stacking_predictor' in st.session_state:
+            # Use the model to predict on the new data
+            prediction = st.session_state['stacking_predictor'].predict_for_new_coordinates(new_data)
+
+            full_file = pd.concat([df[['Elevation', 'lat', 'lon']], prediction.drop(columns=['lat', 'lon'])], axis=1)
+            st.write('full file', full_file)
+
+
+
+            # Convert DataFrame to CSV for download
+            csv = full_file.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="Download predictions as CSV",
+                data=csv,
+                file_name='predictions.csv',
+                mime='text/csv',
+    )
+
+
+
+
+
+        else:
+            st.error('Model is not trained yet. Please train the model first.')
+    else:
+        st.error('Uploaded file does not contain the required columns.')
+else:
+    st.write("Please upload a file.")
+
