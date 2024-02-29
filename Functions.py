@@ -195,10 +195,9 @@ class StackingPollutantPredictor:
         self.models = [
             RandomForestRegressor(random_state=42),
             KNeighborsRegressor(n_neighbors=3),
-            GradientBoostingRegressor(random_state=42),
             XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
         ]
-        self.stacker = XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
+        self.stacker = Ridge()
 
     def fit(self, test_size=0.1, random_state=42, n_splits=5):
         X_train, X_test, Y_train, Y_test = train_test_split(
