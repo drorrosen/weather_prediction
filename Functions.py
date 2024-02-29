@@ -3,6 +3,7 @@ import numpy as np
 import requests
 import json
 from joblib import dump, load
+from xgboost import XGBRegressor
 
 
 
@@ -12,7 +13,7 @@ warnings.filterwarnings('ignore')
 
 from sklearn.model_selection import train_test_split, KFold
 from sklearn.neighbors import RadiusNeighborsRegressor
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 from sklearn.ensemble import RandomForestRegressor, GradientBoostingRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.multioutput import MultiOutputRegressor
@@ -21,6 +22,8 @@ from sklearn.base import clone
 from sklearn.metrics import mean_squared_error, mean_absolute_error
 from math import sqrt
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
 
 
 
@@ -185,13 +188,17 @@ class PollutantPredictor:
 class StackingPollutantPredictor:
     def __init__(self, df_cleaned):
         self.df_cleaned = df_cleaned
+        self.df_cleaned['Elevation'] = pd.to_numeric(self.df_cleaned['Elevation'], errors='coerce')
         self.X = df_cleaned[['lat', 'lon','Elevation']]
         self.Y = df_cleaned.drop(columns=['lat', 'lon', 'Elevation'])
+
         self.models = [
             RandomForestRegressor(random_state=42),
-            KNeighborsRegressor()
+            KNeighborsRegressor(n_neighbors=3),
+            GradientBoostingRegressor(random_state=42),
+            XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
         ]
-        self.stacker = LinearRegression()
+        self.stacker = XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
 
     def fit(self, test_size=0.1, random_state=42, n_splits=5):
         X_train, X_test, Y_train, Y_test = train_test_split(
