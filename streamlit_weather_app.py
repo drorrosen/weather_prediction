@@ -2,6 +2,7 @@ import streamlit as st
 from Functions import *
 import numpy as np
 import pandas as pd
+import joblib
 
 
 # Function to train and cache models
@@ -13,7 +14,6 @@ def train_models():
     fetcher.preprocess_data()
     fetcher.extract_and_process_dates()
     pivot_table = fetcher.filter_and_pivot_data()
-    st.write(pivot_table)
     pivot_table_qc = fetcher.apply_qc_checks(pivot_table.copy())
     pollutants = pivot_table_qc.drop(columns=['locationId', 'lat', 'lon']).columns
     pivot_table_imputed = fetcher.impute_missing_values(pivot_table_qc, pollutants)
@@ -24,6 +24,8 @@ def train_models():
     pollutant_predictor = PollutantPredictor(df_cleaned)
     stacking_predictor = StackingPollutantPredictor(df_cleaned)
     stacking_predictor.fit()
+    # Assuming `df_cleaned` is your cleaned DataFrame ready for training
+    stacking_predictor.save_model('my_trained_model.joblib')  # Save your model to a file
 
     return pollutant_predictor, stacking_predictor
 
@@ -47,13 +49,10 @@ lat = st.number_input('Enter Latitude', value=0.0, format='%f')
 lon = st.number_input('Enter Longitude', value=0.0, format='%f')
 elevation = st.number_input('Enter Elevation', value=0.0, format='%f')
 
-# if st.button('Predict Pollution Using Radius Method'):
-#     new_coordinates = np.array([[lat, lon, elevation]])
-#     # Retrieve models from session state for prediction
-#     prediction = st.session_state['pollutant_predictor'].predict_pollutants(new_coordinates)
-#     st.write('Prediction from Pollutant Predictor:', prediction)
+
 if st.button('Predict Pollution Using Stacking Method'):
     new_coordinates = np.array([[lat, lon, elevation]])
+    st.write('New Coordinates:', new_coordinates)
     # Implement prediction with stacking_predictor similarly
     evalutation = st.session_state['stacking_predictor'].predict_and_evaluate()
     st.write('Mean Absolute Error:', evalutation)
@@ -66,100 +65,66 @@ if st.button('Predict Pollution Using Stacking Method'):
 
 
 
+
 st.divider()
+st.subheader('JSON input')
+# Load the trained model
+model = joblib.load('my_trained_model.joblib')
 
+# Title of the web app
+st.title('Pollutant Level Prediction')
 
-# def apply_prediction(row):
-#     # Assuming model's predict method returns a list/array of predictions for each row
-#     data_for_prediction = np.array([[row['Elevation'], row['lat'], row['lon']]])
-#     if 'stacking_predictor' in st.session_state:
-#         predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(data_for_prediction)
-#         # Assuming predictions is now a list/array of predictions, one for each output
-#         return pd.Series(predictions)
-#     else:
-#         return pd.Series([np.nan, np.nan])  # Adjust the number of np.nan values based on the number of outputs
+# User inputs JSON in the text area
+example = """[
+  {"Elevation": 100, "lat": 30.1204, "lon": 74.29},
+  {"Elevation": 200, "lat": 24.5925, "lon": 72.7083},
+  {"Elevation": 300, "lat": 15.811, "lon": 79.9738}
+]"""
+user_input_json = st.text_area("Enter coordinates in JSON format", example)
 
-def apply_prediction(row):
-    data_for_prediction = np.array([[row['Elevation'], row['lat'], row['lon']]])
-    if 'stacking_predictor' in st.session_state:
-        predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(data_for_prediction)
+# Button to make predictions
+if st.button('Predict'):
+    try:
+        # Parse the user input to JSON
+        new_coordinates = json.loads(user_input_json)
 
-        # If predictions is a DataFrame, extract its values as numpy array
-        if isinstance(predictions, pd.DataFrame):
-            predictions = predictions.values
-
-        # Ensure predictions is in a format that can be converted to a Series directly
-        # If predictions is a 2D numpy array with one row, flatten it to 1D
-        if isinstance(predictions, np.ndarray) and predictions.ndim > 1:
-            predictions = predictions.flatten()
-
-        # Now, predictions should be in a format that can be directly converted to a Series
-        return pd.Series(predictions)
-    else:
-        # Adjust the number of np.nan values based on the number of outputs expected
-        return pd.Series([np.nan])  # Update 'number_of_expected_outputs' accordingly
+        # Assuming your model expects a 2D array-like structure for new coordinates
+        # Convert list of dicts to the expected format [[lat, lon], [lat, lon], ...]
+        # Convert list of dicts to the expected format [[lat, lon, Elevation], ...]
+        formatted_coordinates = [[coord['lat'], coord['lon'], coord['Elevation']] for coord in new_coordinates]
 
 
 
-# st.divider()
-# st.subheader('Uploading a file for predictions')
-# st.write('Please make sure the next coluumn are in the file - Elevation, lat, lon')
-#
-# uploaded_file = st.file_uploader("Upload a file", type=['csv', 'xlsx'])
-#
-#
-# # Allow the user to upload a file in the sidebar with specific file types
-#
-# if uploaded_file is not None:
-#     file_extension = uploaded_file.name.split('.')[-1]
-#     # Read the uploaded file
-#     if file_extension == 'csv':
-#         df = pd.read_csv(uploaded_file)
-#     elif file_extension == 'xlsx':
-#         df = pd.read_excel(uploaded_file)
-#     else:
-#         st.error('Invalid file type. Only CSV and Excel files are supported.')
-#         st.stop()
-#
-#     # Apply the prediction function to each row
-#     for index, row in df.iterrows():
-#         prediction = apply_prediction(row)
-#         st.write(prediction)
+        # Now new_coordinates is ready for model prediction
+        predictions = model.predict_for_new_coordinates(formatted_coordinates)
 
-    # # Prepare data for prediction
-    # prediction_input = df[expected_columns].to_numpy()
-    #
-    # if 'stacking_predictor' in st.session_state:
-    #     # Obtain predictions for the entire dataset at once
-    #     predictions = st.session_state['stacking_predictor'].predict_for_new_coordinates(prediction_input)
-    #
-    #     # If predictions is a DataFrame, you can directly concatenate; if it's a numpy array, convert it first
-    #     if isinstance(predictions, np.ndarray):
-    #         # Convert to DataFrame and name columns appropriately
-    #         predictions_df = pd.DataFrame(predictions, columns=['Prediction1', 'Prediction2'])  # Adjust column names as needed
-    #     else:
-    #         # Assuming predictions is already a DataFrame with the correct column names
-    #         predictions_df = predictions
-    #         st.write('Predictions:', predictions_df)
-    #
-    #     # Ensure the index aligns with the original DataFrame if necessary
-    #     predictions_df.reset_index(drop=True, inplace=True)
-    #     predictions_df = predictions_df.drop(columns=['lat', 'lon'], errors='ignore')
-    #
-    #     df.reset_index(drop=True, inplace=True)
-    #
-    #     # Concatenate the predictions DataFrame with the original DataFrame
-    #     full_df = pd.concat([df, predictions_df], axis=1)
-    #
-    #     st.write('Full file with predictions:', full_df)
-    #
-    #     # Convert to CSV for download
-    #     csv = full_df.to_csv(index=False).encode('utf-8')
-    #     st.download_button(
-    #         label="Download predictions as CSV",
-    #         data=csv,
-    #         file_name='predictions.csv',
-    #         mime='text/csv',
-    #     )
+        # Convert predictions to a DataFrame for nicer display
+        predictions_df = pd.DataFrame(predictions, columns=model.Y.columns) # Adjust columns as per your model's output
+        predictions_df['Elevation'] = [coord['Elevation'] for coord in new_coordinates]
+        predictions_df['lat'] = [coord['lat'] for coord in new_coordinates]
+        predictions_df['lon'] = [coord['lon'] for coord in new_coordinates]
 
-# Upload file
+        #round the results
+        predictions_df = predictions_df.round()
+        # Display predictions
+        st.write(predictions_df)
+
+        #download button to download the prediction
+        csv = predictions_df.to_csv(index=False).encode('utf-8')
+        st.download_button(
+            label="Download predictions as CSV",
+            data=csv,
+            file_name='predictions.csv',
+            mime='text/csv',
+        )
+
+
+    except json.JSONDecodeError:
+        st.error("There was an error decoding the JSON. Please check the input format.")
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+
+
+
+
+
