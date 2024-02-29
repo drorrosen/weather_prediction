@@ -69,8 +69,10 @@ if st.button('Predict Pollution Using Stacking Method'):
 st.divider()
 st.subheader('JSON input')
 # Load the trained model
-model = joblib.load('./my_trained_model.joblib')
-
+try:
+    model = joblib.load('./my_trained_model.joblib')
+except FileNotFoundError:
+    st.error('Model file not found. Please train the models first.')
 # Title of the web app
 st.title('Pollutant Level Prediction')
 
