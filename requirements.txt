@@ -6,3 +6,4 @@ seaborn
 datetime
 scikit-learn
 openpyxl
+xgboost
