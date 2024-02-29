@@ -2,7 +2,9 @@ import pandas as pd
 import numpy as np
 import requests
 import json
-from datetime import timedelta
+from joblib import dump, load
+
+
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -186,13 +188,12 @@ class StackingPollutantPredictor:
         self.X = df_cleaned[['lat', 'lon','Elevation']]
         self.Y = df_cleaned.drop(columns=['lat', 'lon', 'Elevation'])
         self.models = [
-            RandomForestRegressor(),
-            GradientBoostingRegressor(),
+            RandomForestRegressor(random_state=42),
             KNeighborsRegressor()
         ]
         self.stacker = LinearRegression()
 
-    def fit(self, test_size=0.2, random_state=42, n_splits=5):
+    def fit(self, test_size=0.1, random_state=42, n_splits=5):
         X_train, X_test, Y_train, Y_test = train_test_split(
             self.X, self.Y, test_size=test_size, random_state=random_state)
 
@@ -254,6 +255,16 @@ class StackingPollutantPredictor:
 
         return predicted_df
 
+
+
+    def save_model(self, filename='stacking_pollutant_predictor.joblib'):
+        """Saves the model to a file."""
+        dump(self, filename)
+
+    @staticmethod
+    def load_model(filename='stacking_pollutant_predictor.joblib'):
+        """Loads the model from a file."""
+        return load(filename)
     def predict_and_evaluate(self):
         n_outputs = self.Y_test.shape[1]
         test_preds = np.zeros((self.X_test.shape[0], n_outputs * len(self.models)))
