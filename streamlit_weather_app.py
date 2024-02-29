@@ -25,7 +25,7 @@ def train_models():
     stacking_predictor = StackingPollutantPredictor(df_cleaned)
     stacking_predictor.fit()
     # Assuming `df_cleaned` is your cleaned DataFrame ready for training
-    stacking_predictor.save_model('my_trained_model.joblib')  # Save your model to a file
+    stacking_predictor.save_model('./my_trained_model.joblib')  # Save your model to a file
 
     return pollutant_predictor, stacking_predictor
 
@@ -69,7 +69,7 @@ if st.button('Predict Pollution Using Stacking Method'):
 st.divider()
 st.subheader('JSON input')
 # Load the trained model
-model = joblib.load('my_trained_model.joblib')
+model = joblib.load('./my_trained_model.joblib')
 
 # Title of the web app
 st.title('Pollutant Level Prediction')
