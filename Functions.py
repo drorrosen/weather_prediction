@@ -29,7 +29,7 @@ from sklearn.preprocessing import StandardScaler
 
 class DataFetcherAndPreprocessor:
     def __init__(self):
-        self.url = "https://api.aqi.in/api/v1/getAllLocationsAqicn"
+        self.url = "https://api.aqi.in/api/v1/getAllLocationsAqicn?skip=0&take=5000"
         self.raw_data = None
         self.flattened_data = []
         self.df = None
@@ -66,7 +66,7 @@ class DataFetcherAndPreprocessor:
 
         latest_date = self.df['date'].max()
         filtered_df = self.df[self.df['date'] > latest_date - pd.Timedelta(days=days)]
-        pivot_table = filtered_df.pivot_table(index=['locationId', 'lat', 'lon','Elevation'],
+        pivot_table = filtered_df.pivot_table(index=['locationId', 'lat', 'lon'],
                                               columns='sensorName',
                                               values='sensorData',
                                               aggfunc='mean').reset_index()
@@ -81,7 +81,7 @@ class DataFetcherAndPreprocessor:
         return df
 
     def impute_missing_values(self, df, pollutants, radius=0.5):
-        X = df[['lat', 'lon', 'Elevation']]
+        X = df[['lat', 'lon']]
         for pollutant in pollutants:
             y = df[pollutant]
             available_data = y.notna()
@@ -159,22 +159,6 @@ class PollutantPredictor:
         ), axis=1)
         return df['radius_in_km']
 
-# Usage example
-# Assuming df_cleaned is your DataFrame prepared earlier
-# predictor = PollutantPredictor(df_cleaned)
-# new_coordinates = np.array([
-#     [34.0522, -119.2437],  # Near Los Angeles, CA
-#     [40.7128, -74.0060],   # New York, NY
-#     [37.7749, -122.4194],  # San Francisco, CA
-#     [51.5074, -0.1278],    # London, UK
-#     [-33.8688, 151.2093],  # Sydney, Australia
-#     [35.6895, 139.6917],   # Tokyo, Japan
-#     [-23.5505, -46.6333]   # São Paulo, Brazil
-# ])
-#
-# predicted_df = predictor.predict_pollutants(new_coordinates)
-# print(predicted_df)
-
 
 
 
@@ -188,16 +172,17 @@ class PollutantPredictor:
 class StackingPollutantPredictor:
     def __init__(self, df_cleaned):
         self.df_cleaned = df_cleaned
-        self.df_cleaned['Elevation'] = pd.to_numeric(self.df_cleaned['Elevation'], errors='coerce')
-        self.X = df_cleaned[['lat', 'lon','Elevation']]
-        self.Y = df_cleaned.drop(columns=['lat', 'lon', 'Elevation'])
+        #self.df_cleaned['Elevation'] = pd.to_numeric(self.df_cleaned['Elevation'], errors='coerce')
+        self.X = df_cleaned[['lat', 'lon']]
+        self.Y = df_cleaned.drop(columns=['lat', 'lon'])
 
         self.models = [
             RandomForestRegressor(random_state=42),
             KNeighborsRegressor(n_neighbors=3),
+            GradientBoostingRegressor(random_state=42),
             XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
         ]
-        self.stacker = Ridge()
+        self.stacker = XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
 
     def fit(self, test_size=0.1, random_state=42, n_splits=5):
         X_train, X_test, Y_train, Y_test = train_test_split(
@@ -297,3 +282,26 @@ class StackingPollutantPredictor:
 
         # pd.DataFrame(final_predictions, columns=self.Y_test.columns)
         return final_mae, maes_per_pollutant
+
+
+def train_models():
+    # Initialize and preprocess data
+    fetcher = DataFetcherAndPreprocessor()
+    fetcher.fetch_data()
+    fetcher.preprocess_data()
+    fetcher.extract_and_process_dates()
+    pivot_table = fetcher.filter_and_pivot_data()
+    pivot_table_qc = fetcher.apply_qc_checks(pivot_table.copy())
+    pollutants = pivot_table_qc.drop(columns=['locationId', 'lat', 'lon']).columns
+    pivot_table_imputed = fetcher.impute_missing_values(pivot_table_qc, pollutants)
+    df_cleaned = fetcher.drop_columns_with_missing_data(pivot_table_imputed)
+    df_cleaned.set_index('locationId', inplace=True)
+    df_cleaned = df_cleaned.dropna()
+    # Train predictors
+    #pollutant_predictor = PollutantPredictor(df_cleaned)
+    stacking_predictor = StackingPollutantPredictor(df_cleaned)
+    stacking_predictor.fit()
+    # Assuming `df_cleaned` is your cleaned DataFrame ready for training
+    #stacking_predictor.save_model('my_trained_model.joblib')  # Save your model to a file
+
+    return stacking_predictor, df_cleaned.columns
