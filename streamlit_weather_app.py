@@ -22,6 +22,7 @@ if st.button('Predict Pollutant Levels'):
 
     # Get predictions for all coordinates at once
     predictions_df = stacking_predictor.predict_for_new_coordinates(coordinates)
+    predictions_df['id'] = data_to_predict['id']
 
     st.write(predictions_df)
 
