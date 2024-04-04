@@ -29,7 +29,7 @@ from sklearn.preprocessing import StandardScaler
 
 class DataFetcherAndPreprocessor:
     def __init__(self):
-        self.url = "https://api.aqi.in/api/v1/getAllLocationsAqicn?skip=0&take=5000"
+        self.url = "https://api.aqi.in/api/v1/getAllLocationsAqicn?skip=0&take=15000"
         self.raw_data = None
         self.flattened_data = []
         self.df = None
