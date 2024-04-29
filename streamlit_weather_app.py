@@ -1,44 +1,48 @@
 import streamlit as st
-from Functions import *
-import numpy as np
 import pandas as pd
-import joblib
+from Functions import *
+@st.cache_data()
+def train_and_fit_models():
+    full_data = train_models()
+    stacking_predictor = StackingPollutantPredictor(full_data)
+    stacking_predictor.fit()
+    return stacking_predictor
 
+# Function to perform prediction using the trained model
+def predict_pollution(model, data):
+    # Assuming the model has a method `predict` which can be used here
+    return model.predict_for_new_coordinates(data)
 
-# Function to train and cache models
-
+# Main app setup
 st.title("Pollution Prediction App")
+st.sidebar.header("User Input Coordinates")
 
+with st.sidebar.form(key='client_info_form'):
+    latitude = st.number_input("Latitude",  value=0.0, step=0.1)
+    longitude = st.number_input("Longitude",value=0.0, step=0.1)
+    elevation = st.number_input("Elevation",value=0.0, step=0.1)
+    submit_button = st.form_submit_button(label='Run the weather prediction')
 
+if submit_button:
+    # Displaying input data
+    st.write(f'Latitude: {latitude}')
+    st.write(f'Longitude: {longitude}')
+    st.write(f'Elevation: {elevation}')
 
-if st.button('Predict Pollutant Levels'):
-    data_to_predict = pd.read_csv("GlobalLocations.csv")
+    # Preparing data for prediction
+    data_to_predict = pd.DataFrame({
+        'latitude': [latitude],
+        'longitude': [longitude],
+        'elevation': [elevation],
+        'daylight_hours': [daylight_hours(latitude)],
+        'closest_city_km': [calculate_distances_to_cities([[latitude, longitude]])]
+    })
 
-    stacking_predictor, columns_to_add = train_models()
+    # Getting the cached model
+    model = train_and_fit_models()
 
+    # Predicting pollution
+    prediction = predict_pollution(model, data_to_predict)
 
-    # Extract latitude and longitude as a 2D numpy array
-    coordinates = data_to_predict[['latitude', 'longitude']].values
-
-    # Get predictions for all coordinates at once
-    predictions_df = stacking_predictor.predict_for_new_coordinates(coordinates)
-    predictions_df['id'] = data_to_predict['id']
-
-    st.write(predictions_df)
-
-
-    #download button to download the prediction
-    csv = predictions_df.to_csv(index=False).encode('utf-8')
-    st.download_button(
-        label="Download predictions as CSV",
-        data=csv,
-        file_name='predictions.csv',
-        mime='text/csv',
-        )
-
-
-
-
-
-
-
+    # Display the prediction
+    st.write("Predicted Pollution Levels:", prediction)
