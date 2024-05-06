@@ -225,8 +225,8 @@ class StackingPollutantPredictor:
 
         self.models = [
             RandomForestRegressor(random_state=42),
-            KNeighborsRegressor(n_neighbors=3),
-            GradientBoostingRegressor(random_state=42),
+            #KNeighborsRegressor(n_neighbors=3),
+            #GradientBoostingRegressor(random_state=42),
             XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
         ]
         self.stacker = XGBRegressor(random_state=42, objective='reg:squarederror', n_estimators=100, learning_rate=0.1, max_depth=3)
